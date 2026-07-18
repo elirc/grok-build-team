@@ -1,0 +1,114 @@
+// Prisma Schema for grokbuildteamproject
+// This defines our data model.
+//
+// Educational notes:
+// - We use organizations (teams) to demonstrate multi-tenancy concepts
+// - Roles are defined at the membership level (common SaaS pattern)
+// - Tasks belong to Projects, which belong to Organizations
+// - This structure teaches proper relationship modeling
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== USER ====================
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  passwordHash  String
+  name          String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // A user can belong to multiple organizations
+  memberships   OrganizationMember[]
+
+  // Tasks assigned to this user
+  assignedTasks Task[]
+}
+
+// ==================== ORGANIZATION (TEAM) ====================
+model Organization {
+  id          String    @id @default(cuid())
+  name        String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  members     OrganizationMember[]
+  projects    Project[]
+}
+
+// ==================== MEMBERSHIP (Role in Org) ====================
+model OrganizationMember {
+  id             String   @id @default(cuid())
+  userId         String
+  organizationId String
+  role           Role     @default(MEMBER)
+
+  createdAt      DateTime @default(now())
+
+  user           User          @relation(fields: [userId], references: [id])
+  organization   Organization  @relation(fields: [organizationId], references: [id])
+
+  @@unique([userId, organizationId])
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+// ==================== PROJECT ====================
+model Project {
+  id             String   @id @default(cuid())
+  name           String
+  description    String?
+  organizationId String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  tasks          Task[]
+}
+
+// ==================== TASK ====================
+model Task {
+  id          String    @id @default(cuid())
+  title       String
+  description String?
+  status      TaskStatus @default(TODO)
+  dueDate     DateTime?
+  projectId   String
+  assigneeId  String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  project     Project @relation(fields: [projectId], references: [id])
+  assignee    User?   @relation(fields: [assigneeId], references: [id])
+
+  comments    Comment[]
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+}
+
+// ==================== COMMENT ====================
+model Comment {
+  id        String   @id @default(cuid())
+  content   String
+  taskId    String
+  authorId  String
+  createdAt DateTime @default(now())
+
+  task      Task @relation(fields: [taskId], references: [id])
+  // Note: We could add an author relation, but keeping it simple for now
+}
