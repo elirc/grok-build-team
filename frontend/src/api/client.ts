@@ -1,76 +1,142 @@
-// =============================================================================
-// API CLIENT
-// =============================================================================
-// This file is responsible for all communication with our backend API.
-//
-// Why have a dedicated API layer?
-// - All HTTP logic lives in one place (easy to change base URL, add auth headers, logging, etc.)
-// - Components don't need to know about fetch or axios
-// - Makes testing much easier (we can mock this layer)
-// - Consistent error handling
-//
-// In a real mid-level project you would also add:
-// - Request/response interceptors
-// - Automatic token refresh logic
-// - Better error typing
-// =============================================================================
-
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
-
-interface RequestOptions extends RequestInit {
-  token?: string;
-}
-
-async function apiFetch<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
-  const { token, ...fetchOptions } = options;
-
-  const headers: HeadersInit = {
-    'Content-Type': 'application/json',
-    ...(token && { Authorization: `Bearer ${token}` }),
-    ...fetchOptions.headers,
-  };
-
-  const response = await fetch(`${API_BASE}${endpoint}`, {
-    ...fetchOptions,
-    headers,
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
-  }
-
-  return response.json();
-}
-
-// =============================================================================
-// AUTH API
-// =============================================================================
-export const authApi = {
-  register: (data: { email: string; password: string; name: string }) =>
-    apiFetch<{ token: string; user: any }>('/auth/register', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
-
-  login: (data: { email: string; password: string }) =>
-    apiFetch<{ token: string; user: any }>('/auth/login', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
+export type Role = "OWNER" | "ADMIN" | "MEMBER";
+export type Membership = {
+  role: Role;
+  organization: { id: string; name: string };
 };
+export type User = {
+  id: string;
+  email: string;
+  name: string;
+  memberships: Membership[];
+};
+export type Project = {
+  id: string;
+  organizationId: string;
+  name: string;
+  description: string;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+  _count?: { tasks: number };
+};
+export type Task = {
+  id: string;
+  organizationId: string;
+  projectId: string;
+  title: string;
+  description: string;
+  dueDate: string | null;
+  assigneeId: string | null;
+  status: "TODO" | "IN_PROGRESS" | "DONE";
+  version: number;
+};
+export type Page<T> = {
+  items: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+export type Audit = {
+  id: string;
+  action: string;
+  version: number;
+  createdAt: string;
+};
+export type Session = { token: string; user: User };
+export type Scope = { token: string; organizationId: string };
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public status: number,
+  ) {
+    super(message);
+  }
+}
+export async function request<T>(
+  path: string,
+  scope: Scope | null,
+  options: RequestInit = {},
+): Promise<T> {
+  const controller = new AbortController(),
+    external = options.signal;
+  const abort = () => controller.abort();
+  external?.addEventListener("abort", abort, { once: true });
+  if (external?.aborted) controller.abort();
+  const timer = setTimeout(
+    () =>
+      controller.abort(
+        new Error(
+          "The request timed out and may already have completed. Refresh current records before retrying.",
+        ),
+      ),
+    15000,
+  );
+  try {
+    const response = await fetch("/api" + path, {
+      ...options,
+      signal: controller.signal,
+      cache: "no-store",
+      headers: {
+        ...(scope
+          ? {
+              Authorization: "Bearer " + scope.token,
+              "x-org-id": scope.organizationId,
+            }
+          : {}),
+        ...(options.body ? { "Content-Type": "application/json" } : {}),
+        ...options.headers,
+      },
+    });
+    let data;
+    try {
+      data = await response.json();
+    } catch {
+      throw new ApiError(
+        "The service returned an unreadable response. Keep your draft and refresh before retrying.",
+        response.status,
+      );
+    }
+    if (!response.ok)
+      throw new ApiError(
+        data.error || "The request could not be completed.",
+        response.status,
+      );
+    return data as T;
+  } finally {
+    clearTimeout(timer);
+    external?.removeEventListener("abort", abort);
+  }
+}
+export const fetchProjects = (
+  scope: Scope,
+  q: string,
+  page: number,
+  signal?: AbortSignal,
+) =>
+  request<Page<Project>>(
+    "/projects?" + new URLSearchParams({ q, page: String(page) }),
+    scope,
+    { signal },
+  );
+export function exportDraft(name: string, value: unknown) {
+  const url = URL.createObjectURL(
+    new Blob([JSON.stringify(value, null, 2)], { type: "application/json" }),
+  );
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = name;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+}
 
-// =============================================================================
-// TASKS API
-// =============================================================================
-export const tasksApi = {
-  getAll: (token: string) =>
-    apiFetch<{ data: any[] }>('/tasks', { token }),
-
-  create: (data: any, token: string) =>
-    apiFetch<{ data: any }>('/tasks', {
-      method: 'POST',
-      body: JSON.stringify(data),
-      token,
-    }),
+export type Member = { id: string; name: string; email: string; role: Role };
+export type TaskComment = {
+  id: string;
+  taskId: string;
+  organizationId: string;
+  authorId: string;
+  content: string;
+  version: number;
+  createdAt: string;
+  author: { id: string; name: string };
 };

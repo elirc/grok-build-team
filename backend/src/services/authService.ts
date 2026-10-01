@@ -1,113 +1,42 @@
-// =============================================================================
-// AUTH SERVICE
-// =============================================================================
-// This layer contains the business logic for authentication.
-//
-// Why a service layer?
-// - Keeps authentication logic reusable
-// - Easier to test in isolation
-// - Routes stay focused on HTTP concerns only
-//
-// Security notes:
-// - We use bcrypt for password hashing (industry standard)
-// - Never log passwords or tokens
-// - JWT secret should come from environment variables (never hardcode)
-// =============================================================================
-
-import { PrismaClient } from '@prisma/client';
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
-
-const prisma = new PrismaClient();
-
-const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-in-production';
-const JWT_EXPIRES_IN = '7d';
-
-interface RegisterInput {
-  email: string;
-  password: string;
-  name: string;
-}
-
-interface LoginInput {
-  email: string;
-  password: string;
-}
-
-export async function registerUser(input: RegisterInput) {
-  // Check if user already exists
-  const existingUser = await prisma.user.findUnique({
-    where: { email: input.email },
-  });
-
-  if (existingUser) {
-    throw new Error('User with this email already exists');
-  }
-
-  // Hash the password before storing it
-  // 10 is the salt rounds - a good balance between security and performance
-  const passwordHash = await bcrypt.hash(input.password, 10);
-
-  // Create the user
-  const user = await prisma.user.create({
-    data: {
-      email: input.email,
-      passwordHash,
-      name: input.name,
-    },
-  });
-
-  // Generate JWT token
-  const token = jwt.sign(
-    { 
-      userId: user.id, 
-      email: user.email 
-    }, 
-    JWT_SECRET, 
-    { expiresIn: JWT_EXPIRES_IN }
+import bcrypt from "bcryptjs";
+import { prisma } from "../lib/prisma";
+import { loginInput, registrationInput } from "../lib/validation";
+import { AppError } from "../lib/errors";
+const dummyHash = bcrypt.hashSync("synthetic-unused-account-password", 10);
+export async function loginUser(value: unknown) {
+  const data = loginInput.parse(value);
+  const user = await prisma.user.findUnique({ where: { email: data.email } });
+  const matches = await bcrypt.compare(
+    data.password,
+    user?.passwordHash || dummyHash,
   );
-
-  return {
-    user: {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-    },
-    token,
-  };
+  if (!user || !matches)
+    throw new AppError(401, "Email or password was not accepted.");
+  return user.id;
 }
-
-export async function loginUser(input: LoginInput) {
-  const user = await prisma.user.findUnique({
-    where: { email: input.email },
+export async function registerUser(value: unknown) {
+  const data = registrationInput.parse(value),
+    passwordHash = await bcrypt.hash(data.password, 10);
+  return prisma.$transaction(async (tx) => {
+    const user = await tx.user.create({
+      data: { email: data.email, name: data.name, passwordHash },
+    });
+    const organization = await tx.organization.create({
+      data: { name: data.teamName },
+    });
+    await tx.organizationMember.create({
+      data: { userId: user.id, organizationId: organization.id, role: "OWNER" },
+    });
+    await tx.auditEvent.create({
+      data: {
+        organizationId: organization.id,
+        actorId: user.id,
+        resourceType: "TEAM",
+        resourceId: organization.id,
+        action: "CREATE",
+        version: 1,
+      },
+    });
+    return user.id;
   });
-
-  if (!user) {
-    throw new Error('Invalid credentials');
-  }
-
-  // Compare the provided password with the stored hash
-  const isValidPassword = await bcrypt.compare(input.password, user.passwordHash);
-
-  if (!isValidPassword) {
-    throw new Error('Invalid credentials');
-  }
-
-  const token = jwt.sign(
-    { 
-      userId: user.id, 
-      email: user.email 
-    }, 
-    JWT_SECRET, 
-    { expiresIn: JWT_EXPIRES_IN }
-  );
-
-  return {
-    token,
-    user: {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-    },
-  };
 }

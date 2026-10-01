@@ -1,8 +1,439 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-/* Basic styles for the educational app */
+* {
+  box-sizing: border-box;
+}
+html {
+  color-scheme: light;
+}
 body {
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  margin: 0;
+  background: #f4f1eb;
+  color: #263d3a;
+  font-family: Arial, Helvetica, sans-serif;
+}
+main {
+  max-width: 1360px;
+  margin: auto;
+  padding: 48px 32px;
+}
+h1 {
+  font-size: clamp(34px, 5vw, 62px);
+  line-height: 1.06;
+  letter-spacing: -0.045em;
+  margin: 16px 0;
+  max-width: 860px;
+}
+h2 {
+  font-size: 26px;
+}
+h3 {
+  font-size: 22px;
+}
+h4 {
+  font-size: 17px;
+}
+h2,
+h3,
+h4 {
+  margin: 0 0 14px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+p {
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+.hero > p:last-child {
+  font-size: 18px;
+  color: #63716b;
+}
+.eyebrow {
+  font-size: 11px;
+  font-weight: bold;
+  letter-spacing: 0.16em;
+  color: #66796d;
+}
+.panel {
+  background: white;
+  border: 1px solid #d9dfd6;
+  border-radius: 18px;
+  padding: 26px;
+  min-width: 0;
+}
+.login-panel {
+  max-width: 600px;
+  margin-top: 32px;
+}
+.session-bar,
+.workspace-title,
+.section-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+.session-bar {
+  margin: 24px 0;
+}
+.organization-bar {
+  display: flex;
+  gap: 30px;
+  align-items: center;
+  background: #e8eee5;
+  border: 1px solid #cdd7c8;
+  padding: 22px 26px;
+  border-radius: 14px;
+}
+.organization-bar label {
+  margin: 0;
+  min-width: 260px;
+}
+.organization-bar p {
+  font-size: 13px;
+  margin-bottom: 0;
+}
+.workspace-title {
+  margin: 32px 0 22px;
+}
+.workspace-title h2 {
+  margin: 0;
+}
+.workspace-grid {
+  display: grid;
+  grid-template-columns: minmax(270px, 0.8fr) minmax(0, 1.2fr);
+  gap: 24px;
+  align-items: start;
+}
+.details-stack {
+  display: grid;
+  gap: 24px;
+  min-width: 0;
+}
+.section-title {
+  align-items: flex-start;
+}
+.section-title button {
+  flex-shrink: 0;
+}
+.badge {
+  display: inline-block;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  padding: 7px 9px;
+  background: #edf2e9;
+  color: #536e4d;
+  border-radius: 5px;
+  font-weight: bold;
+  white-space: nowrap;
+}
+.record {
+  border: 1px solid #dce3d8;
+  border-radius: 12px;
+  padding: 19px;
+  margin-top: 16px;
+}
+.record h4 {
+  margin-top: 13px;
+}
+.record p {
+  color: #65716b;
+  font-size: 14px;
+  white-space: pre-wrap;
+}
+.record button {
+  margin-top: 6px;
+}
+label {
+  display: block;
+  font-size: 13px;
+  font-weight: bold;
+  margin-bottom: 17px;
+}
+input,
+textarea,
+select {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  padding: 12px;
+  border: 1px solid #becdbd;
+  border-radius: 7px;
+  font: inherit;
+  font-weight: normal;
+  color: #253d38;
+  background: white;
+  min-width: 0;
+}
+textarea {
+  resize: vertical;
+  line-height: 1.6;
+}
+fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+fieldset:disabled {
+  opacity: 0.7;
+}
+button {
+  font:
+    600 12px Arial,
+    Helvetica,
+    sans-serif;
+  line-height: 1.4;
+  border: 1px solid #bfcfbc;
+  border-radius: 7px;
+  padding: 11px 13px;
+  background: #f0f4ec;
+  color: #345342;
+  cursor: pointer;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+button:hover {
+  background: #e3ecde;
+}
+button.primary {
+  background: #345e49;
+  color: white;
+  border-color: #345e49;
+}
+button.primary:hover {
+  background: #254835;
+}
+button.danger {
+  color: #8e4036;
+  border-color: #ddbbb4;
+  background: #fff3ef;
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 3px solid #a2b565;
+  outline-offset: 3px;
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin: 18px 0;
+}
+.message {
+  padding: 14px 18px;
+  border-radius: 8px;
+  border: 1px solid;
+}
+.message.error {
+  color: #853f34;
+  background: #fff0eb;
+  border-color: #e1b6aa;
+}
+.message.success {
+  color: #2d613c;
+  background: #e8f2e5;
+  border-color: #bfd6b8;
+}
+.muted,
+.draft-state {
+  font-size: 12px;
+  color: #69786d;
+}
+.draft-state {
+  margin: 0 0 23px;
+}
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 22px;
+}
+.pagination span {
+  font-size: 11px;
+  white-space: nowrap;
+}
+.pagination button {
+  font-size: 10px;
+  padding: 10px;
+}
+.record-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  border-top: 1px solid #e1e7dd;
+  border-bottom: 1px solid #e1e7dd;
+  margin: 22px 0;
+  padding: 10px 0;
+}
+.record-actions button {
+  flex-shrink: 0;
+}
+.audit {
+  padding-left: 20px;
+  font-size: 11px;
+  color: #68766d;
+  line-height: 1.8;
+}
+.tip {
+  background: #f1f5ed;
+  border-radius: 10px;
+  padding: 20px;
+  margin-top: 28px;
+  font-size: 14px;
+}
+.tip p {
+  margin-bottom: 0;
+}
+.task-filters {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.task-list {
+  list-style: none;
+  padding: 0;
+}
+.task-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 18px;
+  border: 1px solid #dce3d8;
+  border-radius: 10px;
+  padding: 16px;
+  margin-top: 12px;
+}
+.task-list strong {
+  font-size: 14px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.task-list li > div {
+  min-width: 0;
+}
+.status {
+  display: block;
+  margin-top: 7px;
+  font-size: 11px;
+  color: #6c7a6f;
+}
+.task-list button {
+  max-width: 42%;
+  font-size: 11px;
+}
+.task-editor {
+  border-top: 1px solid #dae2d5;
+  margin-top: 28px;
+  padding-top: 24px;
+}
+footer {
+  color: #798478;
+  font-size: 12px;
+  margin-top: 34px;
+  line-height: 1.6;
+}
+@media (max-width: 850px) {
+  .workspace-grid {
+    grid-template-columns: 1fr;
+  }
+  .organization-bar {
+    align-items: flex-start;
+  }
+  .section-title {
+    flex-wrap: wrap;
+  }
+}
+@media (max-width: 500px) {
+  main {
+    padding: 28px 16px;
+  }
+  .hero > p:last-child {
+    font-size: 16px;
+  }
+  .panel {
+    padding: 20px;
+  }
+  .organization-bar {
+    display: block;
+    padding: 20px;
+  }
+  .organization-bar label {
+    min-width: 0;
+  }
+  .organization-bar > div {
+    margin-top: 16px;
+  }
+  .workspace-title {
+    align-items: flex-start;
+  }
+  .task-filters {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  .record-actions {
+    display: block;
+  }
+  .record-actions button {
+    margin-bottom: 12px;
+  }
+  .task-list li {
+    display: block;
+  }
+  .task-list button {
+    max-width: 100%;
+    margin-top: 12px;
+  }
+  .session-bar p {
+    font-size: 13px;
+  }
+  .pagination {
+    gap: 6px;
+  }
+  .pagination button {
+    padding: 9px 7px;
+  }
+}
+
+.discussion {
+  margin-top: 28px;
+  border-top: 1px solid #d6dfe4;
+  padding-top: 22px;
+}
+.comment-list {
+  list-style: none;
+  padding: 0;
+}
+.comment-list li {
+  padding: 18px;
+  border: 1px solid #d6dfe4;
+  border-radius: 8px;
+  margin: 14px 0;
+}
+.comment-list button {
+  display: block;
+  margin-top: 12px;
+}
+.comment-content {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.assignee-picker {
+  padding: 16px;
+  background: #f1f5f7;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+.task-list small {
+  display: block;
+  margin-top: 6px;
+}
+.login-panel > button {
+  margin-top: 18px;
 }

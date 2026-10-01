@@ -1,114 +1,102 @@
-// Prisma Schema for grokbuildteamproject
-// This defines our data model.
-//
-// Educational notes:
-// - We use organizations (teams) to demonstrate multi-tenancy concepts
-// - Roles are defined at the membership level (common SaaS pattern)
-// - Tasks belong to Projects, which belong to Organizations
-// - This structure teaches proper relationship modeling
-
 generator client {
   provider = "prisma-client-js"
 }
-
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  url = env("DATABASE_URL")
 }
-
-// ==================== USER ====================
-model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  passwordHash  String
-  name          String
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  // A user can belong to multiple organizations
-  memberships   OrganizationMember[]
-
-  // Tasks assigned to this user
-  assignedTasks Task[]
-}
-
-// ==================== ORGANIZATION (TEAM) ====================
-model Organization {
-  id          String    @id @default(cuid())
-  name        String
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-
-  members     OrganizationMember[]
-  projects    Project[]
-}
-
-// ==================== MEMBERSHIP (Role in Org) ====================
-model OrganizationMember {
-  id             String   @id @default(cuid())
-  userId         String
-  organizationId String
-  role           Role     @default(MEMBER)
-
-  createdAt      DateTime @default(now())
-
-  user           User          @relation(fields: [userId], references: [id])
-  organization   Organization  @relation(fields: [organizationId], references: [id])
-
-  @@unique([userId, organizationId])
-}
-
-enum Role {
+enum Role { 
   OWNER
   ADMIN
   MEMBER
 }
-
-// ==================== PROJECT ====================
-model Project {
-  id             String   @id @default(cuid())
-  name           String
-  description    String?
-  organizationId String
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  organization   Organization @relation(fields: [organizationId], references: [id])
-  tasks          Task[]
-}
-
-// ==================== TASK ====================
-model Task {
-  id          String    @id @default(cuid())
-  title       String
-  description String?
-  status      TaskStatus @default(TODO)
-  dueDate     DateTime?
-  projectId   String
-  assigneeId  String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-
-  project     Project @relation(fields: [projectId], references: [id])
-  assignee    User?   @relation(fields: [assigneeId], references: [id])
-
-  comments    Comment[]
-}
-
 enum TaskStatus {
   TODO
   IN_PROGRESS
   DONE
 }
-
-// ==================== COMMENT ====================
-model Comment {
-  id        String   @id @default(cuid())
-  content   String
-  taskId    String
-  authorId  String
+model Organization {
+  id String @id @default(cuid())
+  name String @db.VarChar(120)
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  members OrganizationMember[]
+  projects Project[]
+}
+model User {
+  id String @id @default(cuid())
+  email String @unique @db.VarChar(254)
+  name String @db.VarChar(120)
+  passwordHash String
+  createdAt DateTime @default(now())
+  memberships OrganizationMember[]
+  comments Comment[]
+}
+model OrganizationMember {
+  id String @id @default(cuid())
+  userId String
+  organizationId String
+  role Role @default(MEMBER)
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  assignedTasks Task[]
+  @@unique([userId, organizationId])
+  @@index([organizationId])
+}
+model Project {
+  id String @id @default(cuid())
+  name String @db.VarChar(120)
+  description String @default("") @db.VarChar(2000)
+  organizationId String
+  version Int @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  tasks Task[]
+  @@unique([id, organizationId])
+  @@index([organizationId, createdAt, id])
+}
+model Task {
+  id String @id @default(cuid())
+  title String @db.VarChar(180)
+  status TaskStatus @default(TODO)
+  description String @default("") @db.VarChar(2000)
+  dueDate DateTime? @db.Date
+  assigneeId String?
+  organizationId String
+  projectId String
+  version Int @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  project Project @relation(fields: [projectId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  assignee OrganizationMember? @relation(fields: [assigneeId, organizationId], references: [userId, organizationId], onDelete: Restrict)
+  comments Comment[]
+  @@unique([id, organizationId])
+  @@index([organizationId, projectId, createdAt, id])
+}
+model AuditEvent {
+  id String @id @default(cuid())
+  organizationId String
+  actorId String
+  resourceType String @db.VarChar(20)
+  resourceId String
+  action String @db.VarChar(20)
+  version Int
+  createdAt DateTime @default(now())
+  // Retained metadata: deleting a record does not erase its change history.
+  @@index([organizationId, resourceType, resourceId, createdAt])
+}
 
-  task      Task @relation(fields: [taskId], references: [id])
-  // Note: We could add an author relation, but keeping it simple for now
+model Comment {
+  id String @id @default(cuid())
+  content String @db.VarChar(2000)
+  taskId String
+  organizationId String
+  authorId String
+  version Int @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  task Task @relation(fields: [taskId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  author User @relation(fields: [authorId], references: [id], onDelete: Restrict)
+  @@index([organizationId, taskId, createdAt, id])
 }

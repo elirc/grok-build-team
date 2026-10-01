@@ -1,3 +1,5 @@
+> Historical starter notes. For implemented behavior, setup and verified limits, read [README](README.md) and the [learning course](astraupskill/README.md).
+
 # SWE Thought Process Journal — grokbuildteamproject
 
 This document captures the thinking process of an experienced software engineer building a realistic team/project management application.

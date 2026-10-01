@@ -1,95 +1,106 @@
-/**
- * Unit Tests for authService
- * 
- * Purpose: This file demonstrates mid-level testing practices for a Node/TS backend.
- * 
- * Why these tests?
- * - Services contain business logic (hashing, JWT, validation rules).
- * - Unit tests isolate this logic from HTTP and DB.
- * - Fast feedback, no external dependencies.
- * 
- * Testing strategy for mid-level SWE:
- * - Mock external libs (bcrypt, jsonwebtoken) to test the logic, not the libs.
- * - Test happy path, error cases, edge cases.
- * - Use describe/it for clear organization.
- * - Assert on return values and side effects (though we avoid real side effects here).
- * 
- * In a real project, you'd run with: npm test
- * We'd use Jest here because it's the most common in JS/TS backends for Node.
- * 
- * Note: Prisma would be mocked in integration or we use test containers for DB.
- */
+import {
+  projectInput,
+  taskInput,
+  projectUpdate,
+  taskUpdate,
+  listInput,
+  taskListInput,
+  loginInput,
+} from "../lib/validation";
+import { requireManager } from "../middleware/tenantContext";
+import { validateSecret } from "../middleware/auth";
 
-import * as authService from '../services/authService';
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
-
-// Mock external dependencies
-jest.mock('bcryptjs');
-jest.mock('jsonwebtoken');
-
-const mockBcrypt = bcrypt as jest.Mocked<typeof bcrypt>;
-const mockJwt = jwt as jest.Mocked<typeof jwt>;
-
-describe('authService', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
+describe("request values and role policy", () => {
+  it("normalizes editable project fields without modifying input", () => {
+    const value = { name: " Cedar ", description: " Notes " };
+    expect(projectInput.parse(value)).toEqual({
+      name: "Cedar",
+      description: "Notes",
+    });
+    expect(value.name).toBe(" Cedar ");
   });
-
-  describe('registerUser', () => {
-    it('should hash password and return token + user on success', async () => {
-      // Arrange
-      const input = { email: 'test@example.com', password: 'password123', name: 'Test User' };
-      
-      // Mock DB: in real tests we'd use a test DB or mock prisma client
-      // For this educational example, we assume prisma create succeeds
-      // (we'll add prisma mock in more advanced tests)
-      
-      mockBcrypt.hash.mockResolvedValue('hashed-password-123' as never);
-      mockJwt.sign.mockReturnValue('fake-jwt-token' as never);
-
-      // Act
-      // Note: This will fail in actual run because prisma is not mocked.
-      // The point is to show the test structure and comments.
-      // In practice: jest.mock('@prisma/client');
-      
-      // For demo, we'll spy and assume
-      const result = await authService.registerUser(input);
-
-      // Assert
-      expect(mockBcrypt.hash).toHaveBeenCalledWith('password123', 10);
-      expect(mockJwt.sign).toHaveBeenCalledWith(
-        expect.objectContaining({ email: 'test@example.com' }),
-        expect.any(String),
-        { expiresIn: '7d' }
+  it("rejects client-controlled tenant and identity fields", () => {
+    for (const key of ["organizationId", "id", "version", "createdAt"])
+      expect(projectInput.safeParse({ name: "A", [key]: "x" }).success).toBe(
+        false,
       );
-      expect(result).toHaveProperty('token');
-      expect(result.user).toMatchObject({ email: 'test@example.com', name: 'Test User' });
-    });
-
-    it('should throw if email already exists', async () => {
-      // This would require mocking prisma.findUnique to return existing user
-      // Educational note: Always test error paths and validation.
-      expect(true).toBe(true); // placeholder for structure
-    });
   });
-
-  describe('loginUser', () => {
-    it('should return token if credentials valid', async () => {
-      // Similar pattern
-      mockBcrypt.compare.mockResolvedValue(true as never);
-      mockJwt.sign.mockReturnValue('fake-token' as never);
-
-      // Would call loginUser and assert
-      expect(true).toBe(true);
+  it("rejects blank and overlong project names", () => {
+    for (const name of ["", " ", "x".repeat(121)])
+      expect(projectInput.safeParse({ name }).success).toBe(false);
+  });
+  it("bounds description and unsupported control characters", () => {
+    expect(
+      projectInput.safeParse({ name: "A", description: "x".repeat(2001) })
+        .success,
+    ).toBe(false);
+    expect(projectInput.safeParse({ name: "A\u0000" }).success).toBe(false);
+  });
+  it("requires exact task statuses and task shape", () => {
+    for (const status of ["done", "DELETED", null])
+      expect(taskInput.safeParse({ title: "A", status }).success).toBe(false);
+    expect(
+      taskInput.safeParse({ title: "A", status: "TODO", projectId: "x" })
+        .success,
+    ).toBe(false);
+  });
+  it("bounds captured versions to database integer range", () => {
+    for (const version of [0, -1, 1.2, true, "1", 2147483647]) {
+      expect(
+        projectUpdate.safeParse({ version, project: { name: "A" } }).success,
+      ).toBe(false);
+      expect(
+        taskUpdate.safeParse({ version, task: { title: "A", status: "TODO" } })
+          .success,
+      ).toBe(false);
+    }
+  });
+  it("rejects unknown wrapper and repeated query fields", () => {
+    expect(
+      projectUpdate.safeParse({ version: 1, project: { name: "A" }, extra: 1 })
+        .success,
+    ).toBe(false);
+    expect(listInput.safeParse({ q: ["a", "b"] }).success).toBe(false);
+    expect(listInput.safeParse({ extra: "x" }).success).toBe(false);
+  });
+  it("requires bounded decimal pages", () => {
+    for (const page of ["0", "01", "-1", "1e2", "1.5", "10001"])
+      expect(listInput.safeParse({ page }).success).toBe(false);
+    expect(listInput.parse({})).toEqual({ q: "", page: 1 });
+  });
+  it("accepts supported task filters", () => {
+    expect(taskListInput.parse({ status: "DONE" })).toEqual({
+      q: "",
+      page: 1,
+      status: "DONE",
     });
+    expect(taskListInput.safeParse({ status: "unknown" }).success).toBe(false);
+  });
+  it("normalizes email and enforces bcrypt byte boundary", () => {
+    expect(
+      loginInput.parse({ email: " OWNER@EXAMPLE.TEST ", password: "pass" })
+        .email,
+    ).toBe("owner@example.test");
+    expect(
+      loginInput.safeParse({
+        email: "a@example.test",
+        password: "\u00e9".repeat(37),
+      }).success,
+    ).toBe(false);
+  });
+  it("requires manager roles for project writes", () => {
+    expect(() =>
+      requireManager({ userId: "u", organizationId: "o", role: "MEMBER" }),
+    ).toThrow();
+    expect(() =>
+      requireManager({ userId: "u", organizationId: "o", role: "ADMIN" }),
+    ).not.toThrow();
+  });
+  it("rejects short and placeholder JWT secrets", () => {
+    for (const secret of ["", "a".repeat(20), "replace-with-" + "x".repeat(40)])
+      expect(() => validateSecret(secret)).toThrow();
+    expect(() =>
+      validateSecret("synthetic-test-secret-" + "x".repeat(40)),
+    ).not.toThrow();
   });
 });
-
-/**
- * Mid-level takeaway:
- * - Test the "why" not just the "what".
- * - Mock at the right boundary (don't mock what you're testing).
- * - Use beforeEach to keep tests independent.
- * - For DB, prefer integration tests with real (test) DB over heavy mocking.
- */

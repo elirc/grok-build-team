@@ -1,3 +1,5 @@
+> Historical starter notes. For implemented behavior, setup and verified limits, read [README](README.md) and the [learning course](astraupskill/README.md).
+
 
 
 ## Expanded Testing Examples (Added for Deeper Practice)

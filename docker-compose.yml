@@ -1,21 +1,18 @@
-# Docker Compose for local PostgreSQL development
-# Run with: docker compose up -d
-
-version: '3.8'
-
 services:
-  postgres:
+  db:
     image: postgres:16
-    container_name: grokbuildteamproject-db
-    restart: unless-stopped
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: grokbuildteamproject
+      POSTGRES_USER: team_dev
+      POSTGRES_PASSWORD: ${TEAM_POSTGRES_PASSWORD:?Set a local database password}
+      POSTGRES_DB: team_workspace
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5439:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-
+      - postgres_hr_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U team_dev -d team_workspace"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 volumes:
-  postgres_data:
+  postgres_hr_data:

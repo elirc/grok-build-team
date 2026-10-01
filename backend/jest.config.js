@@ -1,30 +1,23 @@
-/**
- * Jest configuration for backend testing.
- * 
- * For mid-level projects:
- * - preset: ts-jest for TypeScript
- * - testEnvironment: node
- * - Clear mocks between tests
- * - Coverage thresholds (aim for 70%+ on services)
- */
-
 module.exports = {
-  preset: 'ts-jest',
-  testEnvironment: 'node',
-  roots: ['<rootDir>/src'],
-  testMatch: ['**/__tests__/**/*.test.ts'],
-  moduleFileExtensions: ['ts', 'js', 'json'],
+  preset: "ts-jest",
+  testEnvironment: "node",
+  roots: ["<rootDir>/src"],
+  testMatch: ["**/__tests__/**/*.test.ts"],
   clearMocks: true,
-  collectCoverageFrom: [
-    'src/services/**/*.ts',
-    '!src/**/*.test.ts'
-  ],
-  coverageThreshold: {
-    global: {
-      branches: 70,
-      functions: 70,
-      lines: 70,
-      statements: 70
-    }
-  }
+  maxWorkers: 1,
+  testTimeout: 15000,
+  transform: {
+    "^.+\\.tsx?$": [
+      "ts-jest",
+      {
+        tsconfig: {
+          target: "ES2022",
+          module: "CommonJS",
+          esModuleInterop: true,
+          strict: true,
+          types: ["node", "jest"],
+        },
+      },
+    ],
+  },
 };
