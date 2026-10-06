@@ -24,6 +24,16 @@ Before designing bulk reassignment, read the existing narrow mutation, `backend/
     await audit(tx, context, id, "UPDATE", expected + 1);
 ```
 
+## What the composite foreign keys do and do not check
+
+The assignment backstop is `Task_assigneeId_organizationId_fkey`, `FOREIGN KEY ("assigneeId", "organizationId") REFERENCES "OrganizationMember"("userId", "organizationId")` in the initial migration. Three details are worth knowing before you add any new relationship with the same pattern:
+
+- **The referenced pair needs its own unique constraint.** PostgreSQL only accepts a foreign key that targets a primary key or unique constraint. That's why the schema carries `@@unique([userId, organizationId])` on `OrganizationMember` and `@@unique([id, organizationId])` on `Project` and `Task`, even though each `id` is already unique on its own. Without the extra unique index, the migration fails.
+- **Nullable columns use `MATCH SIMPLE`.** The migration doesn't specify a match type, so PostgreSQL uses the default, `MATCH SIMPLE`: if *any* referencing column is null, the constraint is not checked at all. That's what lets an unassigned task (`assigneeId` null) exist. It's safe here only because `Task.organizationId` is `NOT NULL`. If you add a composite reference whose tenant column can be null, a row with a null tenant skips the check entirely. Either keep the tenant column `NOT NULL` or declare `MATCH FULL`.
+- **Postgres does not index the referencing side for you.** No index on `Task` starts with `assigneeId`. When a membership row is deleted, the `RESTRICT` check has to find tasks by `(assigneeId, organizationId)`. The `(organizationId, projectId, createdAt, id)` index narrows that to the team's tasks, but no further. That's fine at this scale. If membership removal becomes a bulk operation (exercise 2), add `@@index([organizationId, assigneeId])` and confirm with `EXPLAIN` that the check stops scanning the whole team.
+
+**Check:** in a scratch database you migrated and seeded yourself (never your personal one), insert a task directly in SQL with a real Cedar `projectId`, `organizationId` `demo_cedar` and `assigneeId` `demo_outsider` (a Maple-only user). PostgreSQL rejects it with a foreign-key violation naming `Task_assigneeId_organizationId_fkey` (the existing test `enforces same-team assignment even when a writer bypasses the repository` does the same through Prisma). The same insert with `assigneeId` null succeeds.
+
 ## Filtering without changing authority
 
 An assignee filter should become another validated clause in the repository predicate. Preserve the organization and project clauses regardless of the requested assignee. One clear API could use `assignment=all`, `assignment=unassigned`, or `assigneeId=<validated-id>`, with mutually exclusive combinations. Reject ambiguous combinations instead of choosing an undocumented precedence.

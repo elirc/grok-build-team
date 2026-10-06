@@ -1,5 +1,13 @@
 > Historical starter notes. For implemented behavior, setup and verified limits, read [README](README.md) and the [learning course](astraupskill/README.md).
 
+> **Status 2026-10-06 (checked against the code):** the testing section below describes the original starter and is now wrong in four places:
+> - `authService.test.ts` no longer mocks bcrypt or JWT. It holds 12 unit tests of request validation, role policy and secret checks.
+> - `taskRoutes.integration.test.ts` runs 46 Supertest cases against a real temporary PostgreSQL cluster, not mocks.
+> - `TaskList.test.tsx` holds 6 tests of the API client and list rendering.
+> - There is no `test:watch` script, and per-package `npm install` / `npm test` is not the supported path. Run `npm run test:api`, `npm test` or `npm run verify` from the root, which also covers the 3 setup tests and 16 Playwright workflows (see `astraupskill/VERIFICATION.md`).
+>
+> Of the "Additional Testing Ideas", 1 (cross-org access), 3 (pagination) and 5 (error states) are now covered by the integration and browser suites. 2 (optimistic updates) and 4 (MSW) are not.
+
 
 
 ## Expanded Testing Examples (Added for Deeper Practice)

@@ -11,8 +11,8 @@ The same distinction appears in assignment. A real user is not necessarily a mem
 | step | value | what happens |
 |---|---|---|
 | token subject | `demo_member` (a Cedar member) | `authenticate` verifies the signature and sets `req.userId` |
-| header | `x-org-id: maple` (an organization the caller does not belong to) | `attachTenantContext` parses the header as an identifier |
-| membership lookup | `organizationMember.findUnique({ userId: "demo_member", organizationId: "maple" })` | returns `null`: no row |
+| header | `x-org-id: demo_maple` (an organization the caller does not belong to) | `attachTenantContext` parses the header as an identifier |
+| membership lookup | `organizationMember.findUnique({ userId: "demo_member", organizationId: "demo_maple" })` | returns `null`: no row |
 | decision | 403 `You are not a member of that organization.` | thrown before any project or task query runs |
 | Maple data touched | none | the only query was the membership lookup, keyed by the caller |
 
